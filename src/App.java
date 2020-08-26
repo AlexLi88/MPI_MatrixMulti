@@ -211,22 +211,6 @@ public class App {
         leftShift = comm2D.Shift(1, myCoords[0]);
         upShift = comm2D.Shift(0, myCoords[1]);
 
-        // Status status;
-        // if (leftShift.rank_source != my2DRank) {
-        // System.out.println("My 2d rank is: " + my2DRank + " Rank L Source: " +
-        // leftShift.rank_source
-        // + " Rank L Dest: " + leftShift.rank_dest);
-        // status = comm2D.Sendrecv_replace(localA, 0, blockDim * blockDim, MPI.INT,
-        // leftShift.rank_dest, 1,
-        // my2DRank, 1);
-        // }
-        // System.out.println("My 2d rank is: " + my2DRank + " Rank L Source: " +
-        // leftShift.rank_source + " Rank L Dest: "
-        // + leftShift.rank_dest);
-        // System.out.println("My 2d rank is: " + my2DRank + " Rank U Source: " +
-        // upShift.rank_source + " Rank U Dest: "
-        // + upShift.rank_dest);
-
         if (leftShift.rank_source != my2DRank) {
             // System.out.println("My 2d rank is: " + my2DRank + " Rank L Source: " +
             // leftShift.rank_source
@@ -281,9 +265,6 @@ public class App {
             }
 
             if (upShift.rank_source != my2DRank) {
-                // System.out.println("My 2d rank is: " + my2DRank + " Rank U Source: " +
-                // upShift.rank_source
-                // + " Rank U Dest: " + upShift.rank_dest);
                 if (my2DRank < upShift.rank_dest) {
                     comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
                     comm2D.Recv(receiveLocalB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,

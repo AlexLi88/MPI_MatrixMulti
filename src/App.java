@@ -1,18 +1,23 @@
 import mpi.*;
 import java.io.File;
+import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.util.*;
 import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.lang.Math;
+import java.lang.Integer;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 public class App {
 
-    public static double[] readCSVFile(String fileName) {
+    public static int[] readCSVFile(String fileName) {
         File file = new File(fileName);
-        List<List<Double>> data = new ArrayList<>();
+        List<List<Integer>> data = new ArrayList<>();
         Scanner inputStream;
         try {
             inputStream = new Scanner(file);
@@ -22,11 +27,11 @@ public class App {
                 String line = inputStream.next();
                 String[] arr = line.split(",");
                 int m = arr.length;
-                List<Double> rows = new ArrayList<>();
+                List<Integer> rows = new ArrayList<>();
                 for (int i = 0; i < m; i++) {
                     // Trim UTF8 BOM character,
                     // https://stackoverflow.com/questions/4897876/reading-utf-8-bom-marker
-                    rows.add(Double.parseDouble(arr[i].replace("\uFEFF", "")));
+                    rows.add(Integer.parseInt(arr[i].replace("\uFEFF", "")));
                 }
                 // this adds the currently parsed line to the 2-dimensional string array
                 data.add(rows);
@@ -38,13 +43,13 @@ public class App {
         // Convert ArrayList into double[][] array,
         // source:
         // https://stackoverflow.com/questions/10043209/convert-arraylist-into-2d-array-containing-varying-lengths-of-arrays
-        double[][] output = data.stream().map(u -> u.stream().mapToDouble(i -> i).toArray()).toArray(double[][]::new);
-        double[] output1D = Stream.of(output).flatMapToDouble(DoubleStream::of).toArray();
+        int[][] output = data.stream().map(u -> u.stream().mapToInt(i -> i).toArray()).toArray(int[][]::new);
+        int[] output1D = Stream.of(output).flatMapToInt(IntStream::of).toArray();
         // System.out.println(Arrays.toString(output1D));
         return output1D;
     }
 
-    public static double[] matrixMultiply(int n, double[] a, double[] b, double[] c) {
+    public static int[] matrixMultiply(int n, int[] a, int[] b, int[] c) {
         int i, j, k;
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++)
@@ -54,9 +59,9 @@ public class App {
         return c;
     }
 
-    public static double[] setLoaclMatrix(double[] a, int myCoords[], int blockDim, int cols) {
+    public static int[] setLoaclMatrix(int[] a, int myCoords[], int blockDim, int cols) {
         int count = 0;
-        double[] local = new double[blockDim * blockDim];
+        int[] local = new int[blockDim * blockDim];
         for (int r = myCoords[0] * blockDim; r < blockDim * (myCoords[0] + 1); r++) {
             for (int i = myCoords[1] * blockDim; i < (myCoords[1] + 1) * blockDim; i++) {
                 int coor = i + r * cols;
@@ -67,8 +72,7 @@ public class App {
         return local;
     }
 
-    public static double[][] reorganizeResults(int row, int n, int blockDim, int rank, double[][] result,
-            double[] input) {
+    public static int[][] reorganizeResults(int row, int n, int blockDim, int rank, int[][] result, int[] input) {
         int coodY = rank / n;
         int coodX = rank % n;
 
@@ -81,19 +85,34 @@ public class App {
         return result;
     }
 
-    public static String prettyPrint(double[][] input, int precision) {
+    public static String prettyPrint(int[][] input, int precision) {
         int rows = input.length;
         int cols = input[0].length;
         String res = "";
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                BigDecimal b = new BigDecimal(input[i][j]);
-                double f = b.setScale(precision, RoundingMode.HALF_UP).doubleValue();
-                res += String.valueOf(f) + "\t";
+                // BigDecimal b = new BigDecimal(input[i][j]);
+                // double f = b.setScale(precision, RoundingMode.HALF_UP).doubleValue();
+                res += String.valueOf(input[i][j]) + "\t";
             }
             res += "\n";
         }
         return res;
+    }
+
+    public static void writeResultToCSV(int[][] result, String filePath) throws IOException {
+        BufferedWriter br = new BufferedWriter(new FileWriter(filePath));
+        StringBuilder sb = new StringBuilder();
+        for (int[] arr : result) {
+            for (int element : arr) {
+                sb.append(String.valueOf(element));
+                sb.append(",");
+            }
+            sb.append("\n");
+        }
+
+        br.write(sb.toString());
+        br.close();
     }
 
     public static void main(String[] args) throws MPIException {
@@ -107,8 +126,8 @@ public class App {
         int[] brocastData = new int[4];
         int rows = Integer.parseInt(args[2]);
         int cols = rows;
-        double[] globalA = new double[rows * rows];
-        double[] globalB = new double[rows * rows];
+        int[] globalA = new int[rows * rows];
+        int[] globalB = new int[rows * rows];
         int blockDim = 0;
         int sqrootProcess = 0;
         int[] dims = new int[2];
@@ -156,11 +175,11 @@ public class App {
         cols = brocastData[1];
         sqrootProcess = brocastData[2];
         blockDim = brocastData[3];
-        MPI.COMM_WORLD.Bcast(globalA, 0, rows * rows, MPI.DOUBLE, 0);
-        MPI.COMM_WORLD.Bcast(globalB, 0, rows * rows, MPI.DOUBLE, 0);
-        double[] localA = new double[blockDim * blockDim];
-        double[] localB = new double[blockDim * blockDim];
-        double[] localC = new double[blockDim * blockDim];
+        MPI.COMM_WORLD.Bcast(globalA, 0, rows * rows, MPI.INT, 0);
+        MPI.COMM_WORLD.Bcast(globalB, 0, rows * rows, MPI.INT, 0);
+        int[] localA = new int[blockDim * blockDim];
+        int[] localB = new int[blockDim * blockDim];
+        int[] localC = new int[blockDim * blockDim];
 
         dims[0] = sqrootProcess;
         dims[1] = sqrootProcess;
@@ -188,7 +207,7 @@ public class App {
         // System.out.println("My 2d rank is: " + my2DRank + " Rank L Source: " +
         // leftShift.rank_source
         // + " Rank L Dest: " + leftShift.rank_dest);
-        // status = comm2D.Sendrecv_replace(localA, 0, blockDim * blockDim, MPI.DOUBLE,
+        // status = comm2D.Sendrecv_replace(localA, 0, blockDim * blockDim, MPI.INT,
         // leftShift.rank_dest, 1,
         // my2DRank, 1);
         // }
@@ -204,11 +223,11 @@ public class App {
             // leftShift.rank_source
             // + " Rank L Dest: " + leftShift.rank_dest);
             if (my2DRank < leftShift.rank_dest) {
-                comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, my2DRank);
-                comm2D.Recv(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, leftShift.rank_source);
+                comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, my2DRank);
+                comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, leftShift.rank_source);
             } else {
-                comm2D.Recv(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, leftShift.rank_source);
-                comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, my2DRank);
+                comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, leftShift.rank_source);
+                comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, my2DRank);
             }
         }
 
@@ -217,11 +236,11 @@ public class App {
             // upShift.rank_source
             // + " Rank U Dest: " + upShift.rank_dest);
             if (my2DRank < upShift.rank_dest) {
-                comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, my2DRank * 2);
-                comm2D.Recv(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, upShift.rank_source * 2);
+                comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
+                comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, upShift.rank_source * 2);
             } else {
-                comm2D.Recv(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, upShift.rank_source * 2);
-                comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, my2DRank * 2);
+                comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, upShift.rank_source * 2);
+                comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
             }
         }
 
@@ -233,17 +252,15 @@ public class App {
             upShift = comm2D.Shift(0, 1);
             if (leftShift.rank_source != my2DRank) {
                 if (my2DRank < leftShift.rank_dest) {
-                    comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, my2DRank);
-                    comm2D.Recv(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source,
-                            leftShift.rank_source);
+                    comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, my2DRank);
+                    comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, leftShift.rank_source);
                 } else {
-                    comm2D.Recv(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source,
-                            leftShift.rank_source);
-                    comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, my2DRank);
+                    comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, leftShift.rank_source);
+                    comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, my2DRank);
                 }
-                // comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE,
+                // comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT,
                 // leftShift.rank_source, my2DRank);
-                // comm2D.Recv(localA, 0, blockDim * blockDim, MPI.DOUBLE,
+                // comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT,
                 // leftShift.rank_source, leftShift.rank_source);
             }
 
@@ -252,35 +269,38 @@ public class App {
                 // upShift.rank_source
                 // + " Rank U Dest: " + upShift.rank_dest);
                 if (my2DRank < upShift.rank_dest) {
-                    comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, my2DRank * 2);
-                    comm2D.Recv(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source,
-                            upShift.rank_source * 2);
+                    comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
+                    comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, upShift.rank_source * 2);
                 } else {
-                    comm2D.Recv(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source,
-                            upShift.rank_source * 2);
-                    comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, my2DRank * 2);
+                    comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, upShift.rank_source * 2);
+                    comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
                 }
-                // comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source,
+                // comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,
                 // my2DRank * 2);
-                // comm2D.Recv(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source,
+                // comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,
                 // upShift.rank_source * 2);
             }
             comm2D.Barrier();
         }
         if (my2DRank == 0) {
-            double[][] finalC = new double[rows][cols];
+            int[][] finalC = new int[rows][cols];
             finalC = reorganizeResults(rows, dims[0], blockDim, 0, finalC, localC);
-            double[] tmpC = new double[blockDim * blockDim];
+            int[] tmpC = new int[blockDim * blockDim];
             for (int r = 1; r < nProcesses; r++) {
-                comm2D.Recv(tmpC, 0, blockDim * blockDim, MPI.DOUBLE, r, r);
+                comm2D.Recv(tmpC, 0, blockDim * blockDim, MPI.INT, r, r);
                 finalC = reorganizeResults(rows, dims[0], blockDim, r, finalC, tmpC);
             }
-            // System.out.println(prettyPrint(finalC, 2));
+            System.out.println(prettyPrint(finalC, 2));
             endTime = System.currentTimeMillis();
             System.out.println("Stop Timer: " + endTime);
             System.out.println("Elapsed time is: " + (endTime - startTime));
+            try {
+                writeResultToCSV(finalC, "output.csv");
+            } catch (Exception e) {
+                System.out.println("IO EXCEPTION");
+            }
         } else {
-            comm2D.Send(localC, 0, blockDim * blockDim, MPI.DOUBLE, 0, my2DRank);
+            comm2D.Send(localC, 0, blockDim * blockDim, MPI.INT, 0, my2DRank);
         }
         MPI.Finalize();
     }

@@ -85,6 +85,13 @@ public class App {
         return result;
     }
 
+    public static int[] copyReceivToLocal(int[] receiveLocal, int[] local) {
+        for (int i = 0; i < local.length; i++) {
+            local[i] = receiveLocal[i];
+        }
+        return local;
+    }
+
     public static String prettyPrint(int[][] input, int precision) {
         int rows = input.length;
         int cols = input[0].length;
@@ -181,6 +188,8 @@ public class App {
         int[] localB = new int[blockDim * blockDim];
         int[] localC = new int[blockDim * blockDim];
 
+        int[] receiveLocalA = new int[blockDim * blockDim];
+        int[] receiveLocalB = new int[blockDim * blockDim];
         dims[0] = sqrootProcess;
         dims[1] = sqrootProcess;
         periods[0] = true;
@@ -224,11 +233,15 @@ public class App {
             // + " Rank L Dest: " + leftShift.rank_dest);
             if (my2DRank < leftShift.rank_dest) {
                 comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, my2DRank);
-                comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, leftShift.rank_source);
+                comm2D.Recv(receiveLocalA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source,
+                        leftShift.rank_source);
             } else {
-                comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, leftShift.rank_source);
+                comm2D.Recv(receiveLocalA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source,
+                        leftShift.rank_source);
                 comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, my2DRank);
             }
+
+            localA = copyReceivToLocal(receiveLocalA, localA);
         }
 
         if (upShift.rank_source != my2DRank) {
@@ -237,11 +250,15 @@ public class App {
             // + " Rank U Dest: " + upShift.rank_dest);
             if (my2DRank < upShift.rank_dest) {
                 comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
-                comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, upShift.rank_source * 2);
+                comm2D.Recv(receiveLocalB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,
+                        upShift.rank_source * 2);
             } else {
-                comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, upShift.rank_source * 2);
+                comm2D.Recv(receiveLocalB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,
+                        upShift.rank_source * 2);
                 comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
             }
+
+            localB = copyReceivToLocal(receiveLocalB, localB);
         }
 
         comm2D.Barrier();
@@ -253,15 +270,14 @@ public class App {
             if (leftShift.rank_source != my2DRank) {
                 if (my2DRank < leftShift.rank_dest) {
                     comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, my2DRank);
-                    comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, leftShift.rank_source);
+                    comm2D.Recv(receiveLocalA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source,
+                            leftShift.rank_source);
                 } else {
-                    comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, leftShift.rank_source);
+                    comm2D.Recv(receiveLocalA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source,
+                            leftShift.rank_source);
                     comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT, leftShift.rank_source, my2DRank);
                 }
-                // comm2D.Send(localA, 0, blockDim * blockDim, MPI.INT,
-                // leftShift.rank_source, my2DRank);
-                // comm2D.Recv(localA, 0, blockDim * blockDim, MPI.INT,
-                // leftShift.rank_source, leftShift.rank_source);
+                localA = copyReceivToLocal(receiveLocalA, localA);
             }
 
             if (upShift.rank_source != my2DRank) {
@@ -270,15 +286,14 @@ public class App {
                 // + " Rank U Dest: " + upShift.rank_dest);
                 if (my2DRank < upShift.rank_dest) {
                     comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
-                    comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, upShift.rank_source * 2);
+                    comm2D.Recv(receiveLocalB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,
+                            upShift.rank_source * 2);
                 } else {
-                    comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, upShift.rank_source * 2);
+                    comm2D.Recv(receiveLocalB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,
+                            upShift.rank_source * 2);
                     comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source, my2DRank * 2);
                 }
-                // comm2D.Send(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,
-                // my2DRank * 2);
-                // comm2D.Recv(localB, 0, blockDim * blockDim, MPI.INT, upShift.rank_source,
-                // upShift.rank_source * 2);
+                localB = copyReceivToLocal(receiveLocalB, localB);
             }
             comm2D.Barrier();
         }
@@ -290,7 +305,7 @@ public class App {
                 comm2D.Recv(tmpC, 0, blockDim * blockDim, MPI.INT, r, r);
                 finalC = reorganizeResults(rows, dims[0], blockDim, r, finalC, tmpC);
             }
-            System.out.println(prettyPrint(finalC, 2));
+            // System.out.println(prettyPrint(finalC, 2));
             endTime = System.currentTimeMillis();
             System.out.println("Stop Timer: " + endTime);
             System.out.println("Elapsed time is: " + (endTime - startTime));

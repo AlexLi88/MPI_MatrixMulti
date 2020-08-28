@@ -8,6 +8,8 @@ import java.lang.Math;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+// mpirun -n 4 java App 2048_2048_int.csv 2048_2048_int.csv 2048
+// mpirun -n 4 java App 10_10.csv 10_10.csv 10
 public class App {
 
     public static double[] readCSVFile(String fileName) {
@@ -103,6 +105,25 @@ public class App {
         return res;
     }
 
+    public static void exchangeSubblock(Cartcomm comm2D, int my2DRank, ShiftParms shiftTarget, double[] local,
+            double[] receivLocal, int blockDim) throws MPIException {
+        if (shiftTarget.rank_source != my2DRank) {
+            // System.out.println("My 2d rank is: " + my2DRank + " Rank L Source: " +
+            // shiftTarget.rank_source
+            // + " Rank L Dest: " + shiftTarget.rank_dest);
+            if (my2DRank < shiftTarget.rank_dest) {
+                comm2D.Send(local, 0, blockDim * blockDim, MPI.DOUBLE, shiftTarget.rank_source, my2DRank);
+                comm2D.Recv(receivLocal, 0, blockDim * blockDim, MPI.DOUBLE, shiftTarget.rank_source,
+                        shiftTarget.rank_source);
+            } else {
+                comm2D.Recv(receivLocal, 0, blockDim * blockDim, MPI.DOUBLE, shiftTarget.rank_source,
+                        shiftTarget.rank_source);
+                comm2D.Send(local, 0, blockDim * blockDim, MPI.DOUBLE, shiftTarget.rank_source, my2DRank);
+            }
+            local = copyReceivToLocal(receivLocal, local);
+        }
+    }
+
     public static void main(String[] args) throws MPIException {
         if (args.length != 3) {
             System.err.println("Usage: <fileA> <fileB> <size>");
@@ -183,9 +204,10 @@ public class App {
         my2DRank = comm2D.Rank();
         myCoords = comm2D.Coords(my2DRank);
 
-        System.out.println("My 2d rank is: " + my2DRank);
+        // System.out.println("My 2d rank is: " + my2DRank);
         // System.out.println("My rank is: " + myRank + Arrays.toString(brocastData));
-        System.out.println("My Coords is: " + my2DRank + " " + Arrays.toString(myCoords));
+        // System.out.println("My Coords is: " + my2DRank + " " +
+        // Arrays.toString(myCoords));
         localA = setLoaclMatrix(globalA, myCoords, blockDim, cols);
         localB = setLoaclMatrix(globalB, myCoords, blockDim, cols);
         // System.out.println("My rank isA: " + myRank + " " + Arrays.toString(localA));
@@ -193,90 +215,17 @@ public class App {
         leftShift = comm2D.Shift(1, myCoords[0]);
         upShift = comm2D.Shift(0, myCoords[1]);
 
-        // Status status;
-        // if (leftShift.rank_source != my2DRank) {
-        // System.out.println("My 2d rank is: " + my2DRank + " Rank L Source: " +
-        // leftShift.rank_source
-        // + " Rank L Dest: " + leftShift.rank_dest);
-        // status = comm2D.Sendrecv_replace(localA, 0, blockDim * blockDim, MPI.DOUBLE,
-        // leftShift.rank_dest, 1,
-        // my2DRank, 1);
-        // }
-        // System.out.println("My 2d rank is: " + my2DRank + " Rank L Source: " +
-        // leftShift.rank_source + " Rank L Dest: "
-        // + leftShift.rank_dest);
-        // System.out.println("My 2d rank is: " + my2DRank + " Rank U Source: " +
-        // upShift.rank_source + " Rank U Dest: "
-        // + upShift.rank_dest);
+        exchangeSubblock(comm2D, my2DRank, leftShift, localA, receivLocalA, blockDim);
+        exchangeSubblock(comm2D, my2DRank, upShift, localB, receivLocalB, blockDim);
 
-        if (leftShift.rank_source != my2DRank) {
-            System.out.println("My 2d rank is: " + my2DRank + " Rank L Source: " + leftShift.rank_source
-                    + " Rank L Dest: " + leftShift.rank_dest);
-            if (my2DRank < leftShift.rank_dest) {
-                comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, my2DRank);
-                comm2D.Recv(receivLocalA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source,
-                        leftShift.rank_source);
-            } else {
-                comm2D.Recv(receivLocalA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source,
-                        leftShift.rank_source);
-                comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, my2DRank);
-            }
-            localA = copyReceivToLocal(receivLocalA, localA);
-        }
-
-        if (upShift.rank_source != my2DRank) {
-            System.out.println("My 2d rank is: " + my2DRank + " Rank U Source: " + upShift.rank_source
-                    + " Rank U Dest: " + upShift.rank_dest);
-            if (my2DRank < upShift.rank_dest) {
-                comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, my2DRank * 2);
-                comm2D.Recv(receivLocalB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source,
-                        upShift.rank_source * 2);
-            } else {
-                comm2D.Recv(receivLocalB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source,
-                        upShift.rank_source * 2);
-                comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, my2DRank * 2);
-            }
-            localB = copyReceivToLocal(receivLocalB, localB);
-        }
-
-        // System.out.println("MY 2d rank is:" + my2DRank + "\nLocal A: \n" +
-        // Arrays.toString(localA) + "\n Local B: \n"
-        // + Arrays.toString(localB) + "\n Local C: \n" + Arrays.toString(localC));
         comm2D.Barrier();
 
         for (int i = 0; i < dims[0]; i++) {
             matrixMultiply(blockDim, localA, localB, localC);
             leftShift = comm2D.Shift(1, 1);
             upShift = comm2D.Shift(0, 1);
-            if (leftShift.rank_source != my2DRank) {
-                if (my2DRank < leftShift.rank_dest) {
-                    comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, my2DRank);
-                    comm2D.Recv(receivLocalA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source,
-                            leftShift.rank_source);
-                } else {
-                    comm2D.Recv(receivLocalA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source,
-                            leftShift.rank_source);
-                    comm2D.Send(localA, 0, blockDim * blockDim, MPI.DOUBLE, leftShift.rank_source, my2DRank);
-                }
-                localA = copyReceivToLocal(receivLocalA, localA);
-            }
-
-            if (upShift.rank_source != my2DRank) {
-                // System.out.println("My 2d rank is: " + my2DRank + " Rank U Source: " +
-                // upShift.rank_source
-                // + " Rank U Dest: " + upShift.rank_dest);
-                if (my2DRank < upShift.rank_dest) {
-                    comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, my2DRank * 2);
-                    comm2D.Recv(receivLocalB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source,
-                            upShift.rank_source * 2);
-                } else {
-                    comm2D.Recv(receivLocalB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source,
-                            upShift.rank_source * 2);
-                    comm2D.Send(localB, 0, blockDim * blockDim, MPI.DOUBLE, upShift.rank_source, my2DRank * 2);
-                }
-                localB = copyReceivToLocal(receivLocalB, localB);
-
-            }
+            exchangeSubblock(comm2D, my2DRank, leftShift, localA, receivLocalA, blockDim);
+            exchangeSubblock(comm2D, my2DRank, upShift, localB, receivLocalB, blockDim);
             comm2D.Barrier();
         }
         if (my2DRank == 0) {
@@ -290,6 +239,7 @@ public class App {
             endTime = System.currentTimeMillis();
             System.out.println("Stop Timer: " + endTime);
             System.out.println("Elapsed time is: " + (endTime - startTime));
+
             // System.out.println(prettyPrint(finalC, 2));
         } else {
             comm2D.Send(localC, 0, blockDim * blockDim, MPI.DOUBLE, 0, my2DRank);

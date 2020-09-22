@@ -15,7 +15,7 @@ The `JAVA DEPENDENCIES` view allows you to manage your dependencies. More detail
 
 
 ## How to run
-`
+```
 CSSmpdboot -n 4 -v
 javac App.java
 mpirun -n 4 java App 10_10.csv 10_10.csv 10   
@@ -23,4 +23,4 @@ mpirun -n 4 java App 10_10.csv 10_10.csv 10
 mpirun -n 4 java App 2048_2048_int.csv 2048_2048_int.csv 2048  
 mpirun -n 4 java App 2048_2048_int.csv 2048_2048_int.csv 2048  
 mpdallexit
-`
+```

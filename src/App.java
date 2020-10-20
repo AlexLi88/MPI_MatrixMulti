@@ -146,7 +146,11 @@ public class App {
             System.err.println("Usage: <fileA> <fileB> <size>");
             System.exit(1);
         }
+        
         MPI.Init(args);
+        long startTime = 0;
+        long endTime = 0;
+        long fileReadTime = 0;
         int nProcesses = MPI.COMM_WORLD.Size();
         int myRank = MPI.COMM_WORLD.Rank();
         int[] brocastData = new int[4];
@@ -161,15 +165,18 @@ public class App {
         Cartcomm comm2D;
         int my2DRank;
         int myCoords[] = new int[2];
-        long startTime = 0;
-        long endTime = 0;
+        
+        String fileNameA = "";
+        String fileNameB = "";
         if (MPI.COMM_WORLD.Rank() == 0) {
-            System.out.println("Number of Processes is " + nProcesses);
             startTime = System.currentTimeMillis();
             System.out.println("Start Timer: " + startTime);
-            String fileNameA = args[0];
-            String fileNameB = args[1];
+            System.out.println("Number of Processes is " + nProcesses);
+            fileNameA = args[0];
+            fileNameB = args[1];
             globalA = readCSVFile(fileNameA);
+            fileReadTime = System.currentTimeMillis();
+            System.out.println("Reading CSV file time: " + (fileReadTime - startTime));
             globalB = readCSVFile(fileNameB);
             rows = (int) Math.sqrt(globalA.length);
             cols = rows;
@@ -220,9 +227,11 @@ public class App {
         my2DRank = comm2D.Rank();
         myCoords = comm2D.Coords(my2DRank);
 
-        System.out.println("My 2d rank is: " + my2DRank);
         // System.out.println("My rank is: " + myRank + Arrays.toString(brocastData));
+        /*
+        System.out.println("My 2d rank is: " + my2DRank);
         System.out.println("My Coords is: " + my2DRank + " " + Arrays.toString(myCoords));
+        */
         localA = setLoaclMatrix(globalA, myCoords, blockDim, cols);
         localB = setLoaclMatrix(globalB, myCoords, blockDim, cols);
         // System.out.println("My rank isA: " + myRank + " " + Arrays.toString(localA));
@@ -255,7 +264,7 @@ public class App {
             System.out.println("Elapsed time is: " + (endTime - startTime));
             // System.out.println(prettyPrint(finalC, 2));
             try {
-                writeResultToCSV(finalC, "output.csv");
+                writeResultToCSV(finalC, fileNameA + "_output.csv");
             } catch (Exception e) {
                 System.out.println("IO EXCEPTION");
             }

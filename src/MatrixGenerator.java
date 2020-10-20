@@ -77,7 +77,16 @@ public class MatrixGenerator {
         w.append(sb.toString());
     }
 
-    public static void writeDataToCSVFile(int row, int cols, String filePath) throws Exception {
+    public static List<Integer> generateSequenceDataByRow(int row, int cols) {
+        List<Integer> data = new LinkedList<>();
+        for (int j = row * cols; j < (row + 1) * cols; j++) {
+            data.add(j);
+        }
+
+        return data;
+    }
+
+    public static void writeDataToCSVFile(int row, int cols, String filePath, Boolean ifRandom) throws Exception {
         System.out.println("Generating CSV file: " + filePath);
 
         String csvFile = filePath;
@@ -86,7 +95,11 @@ public class MatrixGenerator {
             if (i % 100 == 0) {
                 System.out.println("Generating row: " + i);
             }
-            List<Integer> value = MatrixGenerator.getRandomDataByRow(cols);
+            List<Integer> value = new LinkedList<>();
+            if (ifRandom)
+                value = MatrixGenerator.getRandomDataByRow(cols);
+            else
+                value = MatrixGenerator.generateSequenceDataByRow(i, cols);
             MatrixGenerator.writeLine(writer, value);
         }
         // for (List<Double> value : data) {
@@ -97,15 +110,16 @@ public class MatrixGenerator {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 3) {
-            System.err.println("Usage: MatrixGenerator <Row Size> <Column Size> <File Path>");
+        if (args.length != 4) {
+            System.err.println("Usage: MatrixGenerator <Row Size> <Column Size> <File Path> <ifRandom>");
             System.exit(1);
         }
 
         int row = Integer.parseInt(args[0]);
         int col = Integer.parseInt(args[1]);
         String filePath = args[2];
+        boolean ifRandom = Boolean.parseBoolean(args[3]);
 
-        writeDataToCSVFile(row, col, String.format("./%s", filePath));
+        writeDataToCSVFile(row, col, String.format("./%s", filePath), ifRandom);
     }
 }

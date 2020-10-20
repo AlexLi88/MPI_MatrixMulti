@@ -145,6 +145,7 @@ public class App {
         int my2DRank;
         int myCoords[] = new int[2];
         long startTime = 0;
+        long fileReadTime = 0;
         long endTime = 0;
         if (MPI.COMM_WORLD.Rank() == 0) {
             System.out.println("Number of Processes is " + nProcesses);
@@ -153,6 +154,8 @@ public class App {
             String fileNameA = args[0];
             String fileNameB = args[1];
             globalA = readCSVFile(fileNameA);
+            fileReadTime = System.currentTimeMillis();
+            System.out.println("Reading CSV file time: " + (fileReadTime - startTime));
             globalB = readCSVFile(fileNameB);
             rows = (int) Math.sqrt(globalA.length);
             cols = rows;

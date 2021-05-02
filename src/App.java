@@ -8,8 +8,7 @@ import java.lang.Math;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-// mpirun -n 4 java App 2048_2048_int.csv 2048_2048_int.csv 2048
-// mpirun -n 4 java App 10_10.csv 10_10.csv 10
+
 public class App {
 
     public static double[] readCSVFile(String fileName) {
@@ -244,6 +243,7 @@ public class App {
             System.out.println("Elapsed time is: " + (endTime - startTime));
 
             // System.out.println(prettyPrint(finalC, 2));
+            // System.out.println("OUTPUT: " + finalC[0][0]);
         } else {
             comm2D.Send(localC, 0, blockDim * blockDim, MPI.DOUBLE, 0, my2DRank);
         }
